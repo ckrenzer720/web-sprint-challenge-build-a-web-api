@@ -1,5 +1,6 @@
 const express = require("express");
 const Action = require("./actions-model");
+const { validateActionId, validateAction } = require("./actions-middlware");
 
 const router = express.Router();
 
@@ -19,20 +20,8 @@ router.get("/", async (req, res) => {
 });
 
 // [GET] -> get()
-router.get("/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const action = await Action.get(id);
-    if (!action) {
-      res
-        .status(404)
-        .json({ message: "The action with that ID does not exist" });
-    } else {
-      res.status(200).json(action);
-    }
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+router.get("/:id", validateActionId, async (req, res) => {
+  res.json(req.action);
 });
 
 // [POST] -> insert()

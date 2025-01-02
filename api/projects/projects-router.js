@@ -1,6 +1,6 @@
 const express = require("express");
 const Project = require("./projects-model");
-const { validateProjectId } = require("./projects-middleware");
+const { validateProjectId, validateProject } = require("./projects-middleware");
 
 const router = express.Router();
 
@@ -20,24 +20,11 @@ router.get("/", async (req, res) => {
 });
 
 // get() -> GET
-router.get("/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const project = await Project.get(id);
-    if (!project) {
-      res
-        .status(404)
-        .json({ message: "The project with that ID does not exist" });
-    } else {
-      res.status(200).json(project);
-    }
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+router.get("/:id", validateProjectId, async (req, res) => {
+  res.json(req.project);
 });
 
 // insert() -> POST
-// how to handle situations where completed is not included
 router.post("/", async (req, res) => {
   try {
     const { name, description, completed } = req.body;
@@ -66,51 +53,25 @@ router.post("/", async (req, res) => {
 });
 
 // update() -> PUT
-router.put("/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, description, completed } = req.body;
-    // console.log(req.body);
-    if (!name || !description || !completed) {
-      res.status(400).json({ message: "missing required fields" });
-    } else {
-      const updatedProject = await Project.update(id, {
-        name,
-        description,
-        completed,
-      });
-      if (!updatedProject) {
-        res.status(404).json({ message: `no project with ID ${id} found` });
-      } else {
-        res.status(200).json(updatedProject);
-      }
-    }
-  } catch (error) {
-    res
-      .status(500)
-      .json({ message: "The project information could not be modified" });
-  }
+router.put("/:id", validateProjectId, validateProject, (req, res, next) => {
+  const { name, description, completed } = req.body;
+  Project.update(req.params.id, { name, description, completed })
+    .then((updatedProject) => res.json(updatedProject))
+    .catch(next);
 });
 
 // remove() -> DELETE
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", validateProjectId, async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const deletedProject = await Project.remove(id);
-    if (!deletedProject) {
-      res
-        .status(404)
-        .json({ message: `The project with ID ${id} could not be removed` });
-    } else {
-      res.json(deletedProject);
-    }
+    await Project.remove(req.params.id);
+    res.json(req.project);
   } catch (error) {
-    res.status(500).json({ message: "The project could not be removed" });
+    next(error);
   }
 });
 
 // getProjectActions() -> GET
-router.get("/:id/actions", async (req, res) => {
+router.get("/:id/actions", validateProjectId, async (req, res, next) => {
   try {
     const projectActions = await Project.getProjectActions(req.params.id);
     if (!projectActions) {
@@ -119,10 +80,7 @@ router.get("/:id/actions", async (req, res) => {
       res.json(projectActions);
     }
   } catch (error) {
-    console.log(error);
-    res
-      .status(500)
-      .json({ message: "The actions information could not be retrieved" });
+    next(error);
   }
 });
 
